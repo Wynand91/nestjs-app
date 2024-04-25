@@ -4,7 +4,6 @@ import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ArticleEntity } from './entities/article.entity';
-import { ArticleSearchParamsDto } from './articles-search-service';
 
 @Controller('articles')
 @ApiTags('articles')  // groups all endpoints together on swagger docs
@@ -22,9 +21,8 @@ export class ArticlesController {
   @Get()
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiOkResponse({ type: ArticleEntity, isArray: true })
-  async findAll(@Query() filter: ArticleSearchParamsDto) {
-    console.log(filter.textSearch)
-    const articles = await this.articlesService.findAll(filter.textSearch);
+  async findAll(@Query('search') search?: string) {
+    const articles = await this.articlesService.findAll(search);
     return articles.map((article) => new ArticleEntity(article));
   }
 
