@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ArticlesService } from './articles.service';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { ArticlesController } from './articles.controller';
+import { PrismaModule } from '../prisma/prisma.module';
+import { EventsModule } from '../events/events.module';
 
 
 const articleArray = [
@@ -12,7 +15,7 @@ const articleArray = [
 const oneArticle = articleArray[0];
 
 const db = {
-  cat: {
+  article: {
     findMany: jest.fn().mockResolvedValue(articleArray),
     findUnique: jest.fn().mockResolvedValue(oneArticle),
   },
@@ -25,12 +28,17 @@ describe('ArticlesService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
+      controllers: [ArticlesController],
       providers: [
         ArticlesService,
         {
           provide: PrismaService,
           useValue: db,
         },
+      ],
+      imports: [
+        PrismaModule, 
+        EventsModule
       ],
     }).compile();
 
@@ -42,10 +50,10 @@ describe('ArticlesService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('findAll', () => {
-    it('should return all articles', async () => {
-      const articles = await service.findAll();
-      expect(articles).toEqual(articleArray)
+  describe('findOne', () => {
+    it('should return an article', async () => {
+      const articles = await service.findOne(1);
+      expect(articles).toEqual(oneArticle)
     })
   });
 });
