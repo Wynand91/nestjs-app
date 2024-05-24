@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, NotFoundException, Query, ParseBoolPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, NotFoundException, Query, Res, Req } from '@nestjs/common';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ArticleEntity } from './entities/article.entity';
+import { response } from 'express';
 
 @Controller('articles')
 @ApiTags('articles')  // groups all endpoints together on swagger docs
@@ -18,12 +19,24 @@ export class ArticlesController {
     );
   }
 
+  // @Get()
+  // @ApiQuery({ name: 'search', required: false, type: String })
+  // @ApiOkResponse({ type: ArticleEntity, isArray: true })
+  // async findAll(@Query('search') search?: string) {
+  //   const articles = await this.articlesService.findAll(search);
+  //   return articles.map((article) => new ArticleEntity(article));
+  // }
+
   @Get()
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: String })
   @ApiOkResponse({ type: ArticleEntity, isArray: true })
-  async findAll(@Query('search') search?: string) {
-    const articles = await this.articlesService.findAll(search);
-    return articles.map((article) => new ArticleEntity(article));
+  async findAll(@Req() request: any) {
+    const searchFields = ['title']
+    const articles = await this.articlesService.findAll(request.query, searchFields);
+    return await articles.map((article) => new ArticleEntity(article));
   }
 
   // custom route (create manually)
