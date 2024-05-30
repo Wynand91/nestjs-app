@@ -9,21 +9,6 @@ import { kafkaProducer, kafkaConsumer } from '../kafka.config';
 import { verify } from 'jsonwebtoken';
 import { jwtSecret } from 'src/auth/auth.module';
 import { WebSocketService } from './events.service';
-import { log } from 'console';
-// import { Message } from 'src/events/generated/src/proto/messages/message_pb'
-
-// async function sendEvent(topic: string, message: any) {
-//   // function connects to kafka server and sends messages
-//   await kafkaProducer.connect();
-//   await kafkaProducer.send({
-//     topic: topic,
-//     messages: [{ value: message }]
-//   });
-//   Logger.log('Kafka event sent');
-//   await kafkaProducer.disconnect();
-// }
-
-
 
 
 @WebSocketGateway({namespace: 'events', cors: {origin: '*', methods: ['GET', 'POST']}})
@@ -49,9 +34,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await kafkaConsumer.subscribe({ topic: 'test-topic' });
     await kafkaConsumer.run({
       eachMessage: async ({ topic, partition, message }) => {
-        console.log(`Received message: ${message.value}`)
-        const respMessage = "This message was fired from Kafka consumer!"
-        this.sendNotification(respMessage)
+        // message format should be: '{"email": "<email>", "message": "<message:str>"}'
+        const mssgStr = message.value.toString()
+        const body = JSON.parse(mssgStr)
+        const recipient = body.email
+        const mssg = body.message
+        this.sendNotification(recipient, mssg)
       }
     })
   }
@@ -61,7 +49,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { authorization } = client.handshake.headers;
     const token: string = authorization.split(' ')[1];
     const payload: any = verify(token, jwtSecret)
-    Logger.log(payload)
     const username = payload.username;
     await this.webSocketService.addConnection(username, client.id )
   }
@@ -97,28 +84,16 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('message')
   async handleMessage(client: any, payload: any) {
-    // test protobuf (de)serialization
-    // const message = new Message()
-    // message.setTitle(payload.title)
-    // message.setDescription(payload.description)
-    // message.setBody(payload.body)
-
-    // const serializedMessage = message.serializeBinary()
-    // const deserializedMessage = Message.deserializeBinary(serializedMessage)
-    // Logger.log(serializedMessage)
-    // Logger.log(deserializedMessage)
-
     // add logic to send event to kafka queue
     await this.sendEvent('test-topic', payload)
   }
 
-  async sendNotification(message: any) {
-    console.log('sendNotification')
-    console.log(message.value)
-    const username = message.value.email
-    const mssg = message.value.message
-    const connection = await this.webSocketService.getUserConnections(username)
-    this.server.to(connection).emit('notification', mssg)
+  async sendNotification(recipient: string, message: string) {
+    // check if the recipient has a current ws connection open, and send notifications if they do
+    const connection = await this.webSocketService.getUserConnections(recipient)
+    if (connection) {
+      this.server.to(connection).emit('notification', message)
+    }
   }
 
   // send message for new articles
