@@ -1,4 +1,4 @@
-import { SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import {Server, Socket} from "socket.io"
 import { ServerToClientEvents } from './types/events';
 import { ArticleEntity } from 'src/articles/entities/article.entity';
@@ -6,35 +6,31 @@ import { Logger, UseGuards } from '@nestjs/common';
 import { WsJwtGuard } from 'src/auth/ws-jwt/ws-jwt.guard';
 import { SocketAuthMiddleware } from 'src/auth/ws.mw';
 import { kafkaProducer, kafkaConsumer } from '../kafka.config';
+import { verify } from 'jsonwebtoken';
+import { jwtSecret } from 'src/auth/auth.module';
+import { WebSocketService } from './events.service';
+import { log } from 'console';
 // import { Message } from 'src/events/generated/src/proto/messages/message_pb'
 
-async function sendEvent(topic: string, message: any) {
-  // function connects to kafka server and sends messages
-  await kafkaProducer.connect();
-  await kafkaProducer.send({
-    topic: topic,
-    messages: [{ value: message }]
-  });
-  Logger.log('Kafka event sent');
-  await kafkaProducer.disconnect();
-}
+// async function sendEvent(topic: string, message: any) {
+//   // function connects to kafka server and sends messages
+//   await kafkaProducer.connect();
+//   await kafkaProducer.send({
+//     topic: topic,
+//     messages: [{ value: message }]
+//   });
+//   Logger.log('Kafka event sent');
+//   await kafkaProducer.disconnect();
+// }
 
-async function initializeKafkaConsumer(gateway: EventsGateway) {
-  await kafkaConsumer.connect();
-  await kafkaConsumer.subscribe({ topic: 'test-topic' });
-  await kafkaConsumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      console.log(`Received message: ${message.value}`)
-      const respMessage = 'This notification was fired by kafka consumer!'
-      gateway.sendNotification(respMessage)
-    }
-  })
-}
+
 
 
 @WebSocketGateway({namespace: 'events', cors: {origin: '*', methods: ['GET', 'POST']}})
 @UseGuards(WsJwtGuard)
-export class EventsGateway {
+export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
+
+  constructor(private readonly webSocketService: WebSocketService){}
   
   // any -> types for client to server messages
   // ServerToClientEvents -> type expected for server to client messages
@@ -45,12 +41,58 @@ export class EventsGateway {
   afterInit(client: Socket) {
     // use middleware to authenticate
     client.use(SocketAuthMiddleware() as any)
-    initializeKafkaConsumer(this)
+    this.initializeKafkaConsumer()
+  }
+
+  async initializeKafkaConsumer() {
+    await kafkaConsumer.connect();
+    await kafkaConsumer.subscribe({ topic: 'test-topic' });
+    await kafkaConsumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        console.log(`Received message: ${message.value}`)
+        const respMessage = "This message was fired from Kafka consumer!"
+        this.sendNotification(respMessage)
+      }
+    })
+  }
+
+  async handleConnection(client: Socket, ...args: any[]) {
+    // add user connection to redis
+    const { authorization } = client.handshake.headers;
+    const token: string = authorization.split(' ')[1];
+    const payload: any = verify(token, jwtSecret)
+    Logger.log(payload)
+    const username = payload.username;
+    await this.webSocketService.addConnection(username, client.id )
+  }
+
+  async handleDisconnect(client: Socket) {
+    // remove user connection from redis
+    const { authorization } = client.handshake.headers;
+    const token: string = authorization.split(' ')[1];
+    const payload: any = verify(token, jwtSecret)
+    const username = payload.username;
+    const connections = await this.webSocketService.getUserConnections('wynand@byteorbit.com')
+    Logger.log(`handleDisconnect: ${connections}`)
+    await this.webSocketService.removeConnection(username, connections[0]);
+    Logger.log(`User: ${username} - disconnected `);
+  }
+
+  async sendEvent(topic: string, message: any) {
+    // function connects to kafka server and sends messages
+    await kafkaProducer.connect();
+    await kafkaProducer.send({
+      topic: topic,
+      messages: [{ value: message }]
+    });
+    Logger.log('Kafka event sent');
+    await kafkaProducer.disconnect();
   }
 
   @SubscribeMessage('test')
-  testPing(client: any, payload: any) {
-    this.server.emit('test', 'Test successful')
+  async testPing(client: any, payload: any) {
+    const connection = await this.webSocketService.getUserConnections('wynand@byteorbit.com')
+    this.server.to(connection).emit('test', 'Test successful')
   }
 
   @SubscribeMessage('message')
@@ -67,12 +109,16 @@ export class EventsGateway {
     // Logger.log(deserializedMessage)
 
     // add logic to send event to kafka queue
-    await sendEvent('test-topic', payload)
+    await this.sendEvent('test-topic', payload)
   }
 
-  sendNotification(message: string) {
-    console.log('sending notification')
-    this.server.emit('notification', message)
+  async sendNotification(message: any) {
+    console.log('sendNotification')
+    console.log(message.value)
+    const username = message.value.email
+    const mssg = message.value.message
+    const connection = await this.webSocketService.getUserConnections(username)
+    this.server.to(connection).emit('notification', mssg)
   }
 
   // send message for new articles

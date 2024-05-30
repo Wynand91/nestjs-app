@@ -27,6 +27,8 @@ async function bootstrap() {
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
+  app.enableCors()
+
   // run server
   await app.listen(8000);
 }

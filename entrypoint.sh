@@ -12,5 +12,7 @@ done
 # Run database migrations
 npm run migrate
 
+npx prisma db seed
+
 # Start the application
 exec "$@"

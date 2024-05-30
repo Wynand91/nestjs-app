@@ -21,16 +21,16 @@ async function main() {
     },
   });
 
-  const passwordAlex = await bcrypt.hash('password-alex', roundsOfHashing)
+  const passwordWynand = await bcrypt.hash('test123', roundsOfHashing)
   const user2 = await prisma.user.upsert({
     where: { email: 'alex@ruheni.com' },
     update: {
-      password: passwordAlex
+      password: passwordWynand
     },
     create: {
-      email: 'alex@ruheni.com',
-      name: 'Alex Ruheni',
-      password: passwordAlex,
+      email: 'wynand@byteorbit.com',
+      name: 'Wynand',
+      password: passwordWynand,
     },
   });
 
