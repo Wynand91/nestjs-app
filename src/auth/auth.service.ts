@@ -8,13 +8,13 @@ import * as bcrypt from 'bcrypt';
 export class AuthService {
     constructor(private prisma: PrismaService, private jwtService: JwtService) {}
 
-    async login(email: string, password: string): Promise<AuthEntity> {
+    async login(username: string, password: string): Promise<AuthEntity> {
         // step 1: fetch user with email
-        const user = await this.prisma.user.findUnique({ where: { email: email } });
+        const user = await this.prisma.user.findUnique({ where: { email: username } });
 
         // If no user, throw error
         if (!user) {
-            throw new NotFoundException(`No user found for email: ${email}`);
+            throw new NotFoundException(`No user found for email: ${username}`);
         }
 
         // step 2: Check if password is correct
