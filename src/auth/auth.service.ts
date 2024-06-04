@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthEntity } from './entity/auth.entity';
@@ -26,8 +26,10 @@ export class AuthService {
         }
 
         // step 3: Generate a JWT containging the user's ID and return it
+        const token = this.jwtService.sign({ userId: user.id, username: user.email })
+        Logger.log(`JWT created for ${user.email} - ${token}`)
         return {
-            accessToken: this.jwtService.sign({ userId: user.id, username: user.email })
+            accessToken: token
         }
     }
 }

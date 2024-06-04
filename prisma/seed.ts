@@ -34,6 +34,19 @@ async function main() {
     },
   });
 
+  const passwordJohn = await bcrypt.hash('test123', roundsOfHashing)
+  const user3 = await prisma.user.upsert({
+    where: { email: 'john@doe.com' },
+    update: {
+      password: passwordJohn
+    },
+    create: {
+      email: 'john@doe.com',
+      name: 'John',
+      password: passwordJohn,
+    },
+  });
+
   // create two dummy articles
   const post1 = await prisma.article.upsert({
     where: { title: 'Prisma Adds Support for MongoDB' },

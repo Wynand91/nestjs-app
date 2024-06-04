@@ -9,3 +9,5 @@ const kafka = new Kafka({
 
 export const kafkaProducer = kafka.producer();
 export const kafkaConsumer = kafka.consumer({groupId: `${uuidv4()}`});
+kafkaConsumer.connect();
+kafkaConsumer.subscribe({ topic: 'test-topic' });

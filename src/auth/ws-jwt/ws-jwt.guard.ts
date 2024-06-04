@@ -26,12 +26,12 @@ export class WsJwtGuard implements CanActivate {
   static validateToken(client: Socket) {
     const {authorization} = client.handshake.headers
     // {authorization: 'Bearer <token>'}
+    Logger.log(`Trying jwt for WS auth: ${authorization}`)
     const token: string = authorization.split(' ')[1];
     try {
       const payload = verify(token, jwtSecret)
     } catch(error) {
-      Logger.log('Error:');
-      Logger.log(error);
+      Logger.log(`Error: ${error}`);
     }
   }
 }

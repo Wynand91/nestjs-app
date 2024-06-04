@@ -26,15 +26,14 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   afterInit(client: Socket) {
     // use middleware to authenticate
     client.use(SocketAuthMiddleware() as any)
-    this.initializeKafkaConsumer()
+    this.handleKafkaQueue()
   }
 
-  async initializeKafkaConsumer() {
-    await kafkaConsumer.connect();
-    await kafkaConsumer.subscribe({ topic: 'test-topic' });
+  async handleKafkaQueue() {
     await kafkaConsumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         // message format should be: '{"email": "<email>", "message": "<message:str>"}'
+        Logger.log(`Consumend mssg being handled: ${message.value}`)
         const mssgStr = message.value.toString()
         const body = JSON.parse(mssgStr)
         const recipient = body.email
@@ -59,9 +58,8 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token: string = authorization.split(' ')[1];
     const payload: any = verify(token, jwtSecret)
     const username = payload.username;
-    const connections = await this.webSocketService.getUserConnections('wynand@byteorbit.com')
-    Logger.log(`handleDisconnect: ${connections}`)
-    await this.webSocketService.removeConnection(username, connections[0]);
+    const connection = await this.webSocketService.getUserConnections(username)
+    await this.webSocketService.removeConnection(username, connection);
     Logger.log(`User: ${username} - disconnected `);
   }
 
@@ -72,14 +70,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       topic: topic,
       messages: [{ value: message }]
     });
-    Logger.log('Kafka event sent');
+    Logger.log(`Kafka event sent with message ${message}`);
     await kafkaProducer.disconnect();
   }
 
   @SubscribeMessage('test')
   async testPing(client: any, payload: any) {
-    const connection = await this.webSocketService.getUserConnections('wynand@byteorbit.com')
-    this.server.to(connection).emit('test', 'Test successful')
+    this.server.emit('test', 'Test successful')
   }
 
   @SubscribeMessage('message')

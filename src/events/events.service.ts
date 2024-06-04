@@ -14,17 +14,18 @@ export class WebSocketService {
     }
 
     async addConnection(username: string, socketId: string) {
-        await this.redisClient.sadd(username, socketId)
+        Logger.log(`${username} connection added to redis: , ${socketId}`)
+        await this.redisClient.set(username, socketId)
     }
 
     async removeConnection(username: string, socketId: string) {
-        await this.redisClient.srem(username, socketId);
+        Logger.log(`removeConnection: ${username}, ${socketId}`)
+        await this.redisClient.del(username);
     }
 
     async getUserConnections(username: string): Promise<any> {
-        const socketIds = await this.redisClient.smembers(`${username}`);
-        Logger.log(socketIds[0])
-        return socketIds[0];
+        const socketId = await this.redisClient.get(`${username}`);
+        return socketId;
     }
 
 }
