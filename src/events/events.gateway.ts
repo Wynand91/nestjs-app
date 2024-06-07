@@ -70,7 +70,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       topic: topic,
       messages: [{ value: message }]
     });
-    Logger.log(`Kafka event sent with message ${message}`);
     await kafkaProducer.disconnect();
   }
 
