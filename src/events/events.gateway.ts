@@ -33,8 +33,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await kafkaConsumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         // message format should be: '{"email": "<email>", "message": "<message:str>"}'
-        Logger.log(`Consuming message: ${message.value}`)
-        Logger.log(`consumed message type ${typeof message.value}`)
+        // transform message buffer to workable string
         const mssgStr = message.value.toString()
         const body = JSON.parse(mssgStr)
         const recipient = body.email
@@ -85,7 +84,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleMessage(client: any, payload: any) {
     // add logic to send event to kafka queue
     Logger.log(`Message received: ${payload}`)
-    Logger.log(`Payload type: ${typeof payload}`)
     await this.sendEvent('test-topic', payload)
   }
 
