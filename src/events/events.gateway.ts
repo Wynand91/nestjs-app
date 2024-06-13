@@ -66,7 +66,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async sendEvent(topic: string, message: any) {
     // function connects to kafka server and sends messages
-    Logger.log(`Adding message to topic: ${topic}`)
     await kafkaProducer.connect();
     await kafkaProducer.send({
       topic: topic,
