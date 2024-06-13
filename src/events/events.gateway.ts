@@ -33,11 +33,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await kafkaConsumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         // message format should be: '{"email": "<email>", "message": "<message:str>"}'
-        Logger.log(`Consumend mssg being handled: ${message.value}`)
+        Logger.log(`Consuming message: ${message.value}`)
+        Logger.log(`consumed message type ${typeof message.value}`)
         const mssgStr = message.value.toString()
         const body = JSON.parse(mssgStr)
         const recipient = body.email
         const mssg = body.message
+        // Check if the current instance owns the connection
         this.sendNotification(recipient, mssg)
       }
     })
@@ -65,6 +67,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async sendEvent(topic: string, message: any) {
     // function connects to kafka server and sends messages
+    Logger.log(`Adding message to topic: ${topic}`)
     await kafkaProducer.connect();
     await kafkaProducer.send({
       topic: topic,
@@ -81,13 +84,25 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('message')
   async handleMessage(client: any, payload: any) {
     // add logic to send event to kafka queue
+    Logger.log(`Message received: ${payload}`)
+    Logger.log(`Payload type: ${typeof payload}`)
     await this.sendEvent('test-topic', payload)
   }
 
   async sendNotification(recipient: string, message: string) {
     // check if the recipient has a current ws connection open, and send notifications if they do
     const connection = await this.webSocketService.getUserConnections(recipient)
-    if (connection) {
+    // get open sockets on this instance and match with recipient socket id
+    const sockets = await this.server.fetchSockets()
+    let connected = false
+    for (const socket of sockets) {
+      if (socket.id == connection) {
+        connected = true
+      }
+    }
+    
+    // only emit notification if user has ws connection AND if WS connection is on this WS server
+    if (connection && connected) {
       this.server.to(connection).emit('notification', message)
     }
   }
@@ -97,6 +112,4 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('newArticle', message)
   }
 }
-
-//
 
